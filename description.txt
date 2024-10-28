@@ -1,0 +1,22 @@
+Welcome to Animation Studio!
+
+!!! Disclaimer: This mod effectively does nothing without integration of other mods !!!
+
+The intended use of this mod is to aid developers in creating animations using keyframes. Use Cheats to get the Item 'AnimatorWrench' to access the UI.
+
+To use this mod effectively, use the mod calls "RegisterElement" and/or "RegisterControl" to register your element (filter) and the controls (fields/variables). The given element will now be available for selection in the UI. When your element is selected it will show all the registered controls in the grid.
+
+Use the additional arguments of the "RegisterControl" mod call to specify the value, range, step size, format and conversion types.
+
+Use the mod call "AnimationValue" with the appropriate element and control names to pass the value of your field/variable into Animation Studio. 
+- In read mode: Animation Studio will read the given value and save it internally. It returns the unmodified value.
+- In Write mode: Animation Studio will ignore the given value and return its internal value instead.
+
+When the incorrect filter is selected it will not read/write anything; it will return the given value.
+
+Some fun facts:
+
+This mod was made to make animations for my work in progress 'Stars Above' addon mod. Due to popular demand in their Discord server I decided to split it from the addon and make it a standalone mod. So... it comes with built-in 'Stars Above' support.
+
+Happy animating!
+

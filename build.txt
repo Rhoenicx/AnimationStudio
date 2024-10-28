@@ -1,0 +1,5 @@
+displayName = Animation Studio
+author = Rhoenicx
+version = 1.0.0.0
+hideCode = true
+hideResources = true

@@ -1,0 +1,6 @@
+Items: {
+	AnimatorWrench: {
+		DisplayName: Animation Wrench
+		Tooltip: Opens the Animation Studio!
+	}
+}
