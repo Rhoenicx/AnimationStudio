@@ -5,23 +5,21 @@ using System.Collections.Generic;
 using System.Linq;
 using System.Text.RegularExpressions;
 using Terraria;
-using Terraria.Audio;
 using Terraria.GameContent.UI.Elements;
-using Terraria.ID;
 using Terraria.ModLoader;
 using Terraria.UI;
 using static AnimationStudio.ModUtils;
 
 namespace AnimationStudio.UI;
 
-public class OutfitAnimatorSystem : ModSystem
+public class AnimatorSystem : ModSystem
 {
     public Animator Animator;
     public UserInterface AnimatorInterface;
 
-    internal static OutfitAnimatorSystem Instance;
+    internal static AnimatorSystem Instance;
 
-    public OutfitAnimatorSystem()
+    public AnimatorSystem()
     { 
         Instance = this;
     }
@@ -576,20 +574,57 @@ public class Animator : UIState
         };
         Panel.Append(loop);
 
-        // Add READ button
-        UIButton read = new(false, "ButtonRead");
-        read.Top.Set(stop.Top.Pixels, 0f);
-        read.Left.Set(playBackward.Left.Pixels - read.Width.Pixels - 4, player.Left.Percent);
-        read.OnUpdate += (_) =>
+        // Add Export all button
+        UIButton exportAll = new(false, "ButtonExport");
+        exportAll.Top.Set(loop.Top.Pixels, 0f);
+        exportAll.Left.Set(loop.Left.Pixels + loop.Width.Pixels + 4, player.Left.Percent);
+        exportAll.OnLeftMouseDown += (_, _) =>
         {
-            read.Value = _readMode;
+            exportAll.Value = true;
         };
-        read.OnButtonTrigger += (_, _) =>
+        exportAll.OnLeftMouseUp += (_, _) =>
+        {
+            exportAll.Value = false;
+            ExportAll(false);
+        };
+        exportAll.OnRightMouseDown += (_, _) =>
+        {
+            exportAll.Value = true;
+        };
+        exportAll.OnRightMouseUp += (_, _) =>
+        {
+            exportAll.Value = false;
+            ExportAll(true);
+        };
+        Panel.Append(exportAll);
+
+        // Add READ button
+        UIButtonStates readWrite = new(2, "ButtonReadWrite");
+        readWrite.Top.Set(stop.Top.Pixels, 0f);
+        readWrite.Left.Set(playBackward.Left.Pixels - readWrite.Width.Pixels - 4, player.Left.Percent);
+        readWrite.OnUpdate += (_) =>
+        {
+            readWrite.State = _readMode ? 0 : 1;
+        };
+        readWrite.OnLeftMouseDown += (_, _) =>
+        {
+            readWrite.Value = true;
+        };
+        readWrite.OnLeftMouseUp += (_, _) =>
         {
             _readMode = !_readMode;
-            read.Value = _readMode;
+            readWrite.Value = false;
+
+            if (readWrite.State <= 0)
+            {
+                readWrite.State = 1;
+            }
+            else if (readWrite.State >= 1)
+            {
+                readWrite.State = 0;
+            }
         };
-        Panel.Append(read);
+        Panel.Append(readWrite);
 
         // Add filter cycle button
         UIText filter = new("Filter");
@@ -1144,6 +1179,30 @@ public class Animator : UIState
                 };
                 fieldPanel.Append(mode);
 
+                // Add Export Single button
+                UIButton exportSingle = new(false, "ButtonExport");
+                exportSingle.Top.Set(keyframe.Top.Pixels, 0f);
+                exportSingle.Left.Set(mode.Left.Pixels + mode.Width.Pixels + 4, slider.Left.Percent);
+                exportSingle.OnLeftMouseDown += (_, _) =>
+                {
+                    exportSingle.Value = true;
+                };
+                exportSingle.OnLeftMouseUp += (_, _) =>
+                {
+                    exportSingle.Value = false;
+                    ExportSingle(control, false);
+                };
+                exportSingle.OnRightMouseDown += (_, _) =>
+                {
+                    exportSingle.Value = true;
+                };
+                exportSingle.OnRightMouseUp += (_, _) =>
+                {
+                    exportSingle.Value = false;
+                    ExportSingle(control, true);
+                };
+                fieldPanel.Append(exportSingle);
+
                 // Add Clear button
                 UIButton delete = new(false, "ButtonDelete");
                 delete.Top.Set(keyframe.Top.Pixels, 0f);
@@ -1308,5 +1367,119 @@ public class Animator : UIState
     public static bool GetReadMode(string elementName)
     { 
         return SelectedFilter == elementName && _readMode;
+    }
+
+    private static void ExportAll(bool fill = false)
+    {
+        if (!_keyFrames.TryGetValue(_selectedFilter, out Dictionary<string, AnimationSettings> settings))
+        {
+            Main.NewText("Export: failed!");
+            return;
+        }
+
+        // The string that will contain all the information
+        string export = "";
+
+        if (fill)
+        {
+            export += "\r\n\r\nnew Dictionary<string, List<float>>()\r\n{\r\n";
+
+            foreach (string control in settings.Keys)
+            {
+                if (settings[control].Disable || settings[control].KeyFrames == null || settings[control].KeyFrames.Count <= 0)
+                {
+                    continue;
+                }
+
+                export += "    { \"" + control + "\", new List<float>() {";
+
+                for (int time  = _minAnimTime; time <= _maxAnimTime; time++)
+                {
+                    settings[control].UpdateAnimationValue(time);
+                    export += " " + settings[control].Value.ToString().Replace(",", ".") + "f,";
+                }
+
+                export += " } },\r\n";
+            }
+
+            export += "};\r\n";
+        }
+        else
+        {
+            export += "\r\n\r\nnew Dictionary<string, SortedDictionary<int, KeyFrame>>()\r\n{\r\n";
+
+            foreach (string control in settings.Keys)
+            {
+                if (settings[control].Disable || settings[control].KeyFrames == null || settings[control].KeyFrames.Count <= 0)
+                {
+                    continue;
+                }
+
+                export += "    { \"" + control + "\", new SortedDictionary<int, KeyFrame>() {";
+
+                foreach (int key in settings[control].KeyFrames.Keys)
+                {
+                    export += " { " + key + ", new KeyFrame(" + settings[control].KeyFrames[key].Value.ToString().Replace(",", ".") + "f, KeyMode." + settings[control].KeyFrames[key].Mode.ToString() + ") },";
+                }
+
+                export += " } },\r\n";
+            }
+
+            export += "};\r\n";
+        }
+
+        ModContent.GetInstance<AnimationStudio>().Logger.Info(export);
+        Main.NewText("Export: success! please check client.log");
+    }
+
+    private static void ExportSingle(string control, bool fill = false)
+    {
+        if (!_keyFrames.TryGetValue(_selectedFilter, out Dictionary<string, AnimationSettings> settings))
+        {
+            Main.NewText("Export: failed!");
+            return;
+        }
+
+        if (!settings.TryGetValue(control, out AnimationSettings setting))
+        {
+            Main.NewText("Export: failed!");
+            return;
+        }
+
+        if (setting.KeyFrames == null || setting.KeyFrames.Count <= 0)
+        {
+            Main.NewText("Export: maybe add some KeyFrames first?");
+            return;
+        }
+
+        // The string that will contain all the information
+        string export = "";
+
+        if (fill)
+        {
+            export += "\r\n\r\nnew List<float>() {";
+
+            for (int time = _minAnimTime; time <= _maxAnimTime; time++)
+            {
+                settings[control].UpdateAnimationValue(time);
+                export += " " + settings[control].Value.ToString().Replace(",", ".") + "f,";
+            }
+
+            export += " };";
+        }
+        else
+        {
+            export += "\r\n\r\nnew SortedDictionary<int, KeyFrame>() {";
+
+            foreach (int key in settings[control].KeyFrames.Keys)
+            {
+                export += " { " + key + ", new KeyFrame(" + settings[control].KeyFrames[key].Value.ToString().Replace(",", ".") + "f, KeyMode." + settings[control].KeyFrames[key].Mode.ToString() + ") },";
+            }
+
+            export += " };";
+        }
+
+        ModContent.GetInstance<AnimationStudio>().Logger.Info(export);
+        Main.NewText("Export: success! Please check client.log");
     }
 }
