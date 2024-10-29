@@ -147,12 +147,25 @@ namespace AnimationStudio.UI.Components
                 {
                     left += _items[i].GetOuterDimensions().Width + ListPadding;
                 }
-                //num += this._items[i].GetOuterDimensions().Height + this.ListPadding;
             }
-            if (_items.Count > 0)
+
+            if (_items.Count % cols != 0)
             {
-                top += ListPadding + _items[0].GetOuterDimensions().Height;
+                int j = _items.Count % cols;
+                float tallest = 0f;
+
+                for (int k = (_items.Count - 1); k > (_items.Count - 1) - j; k--)
+                {
+                    float height = _items[k].GetOuterDimensions().Height;
+                    if (height > tallest)
+                    {
+                        tallest = height;
+                    }
+                }
+
+                top += tallest;
             }
+
             _innerListHeight = top;
         }
 
