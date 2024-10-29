@@ -280,6 +280,14 @@ public static class ModUtils
         // Shorthand to the keyframes
         SortedDictionary<int, KeyFrame> keyFrames = setting.KeyFrames;
 
+        // There is a keyframe on this position, directly set the value
+        if (keyFrames.TryGetValue(time, out KeyFrame keyFrame))
+        { 
+            setting.Value = keyFrame.Value;
+            setting.Time = time;
+            return;
+        }
+
         // Whether the keys should be updated.
         bool update = false;
 
@@ -325,6 +333,7 @@ public static class ModUtils
         {
             // return value of end key
             setting.Value = endKeyFrame.Value;
+            setting.Time = time;
             return;
         }
 
@@ -333,6 +342,7 @@ public static class ModUtils
         {
             // return value of begin key
             setting.Value = beginKeyFrame.Value;
+            setting.Time = time;
             return;
         }
 
@@ -374,6 +384,7 @@ public static class ModUtils
 
         // Return the interpolated value between the 2 keys
         setting.Value = beginKeyFrame2.Value + (endKeyFrame2.Value - beginKeyFrame2.Value) * progress;
+        setting.Time = time;
     }
 
     public static void GetKeys(this Dictionary<string, SortedDictionary<int, KeyFrame>> keyFrames, string control, int time, out int begin, out int end)

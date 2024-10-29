@@ -760,16 +760,17 @@ public class Animator : UIState
                 slider.OnUpdate += (_) =>
                 {
                     // Always read the current value to the slider
-                    if (setting.KeyFrames == null || setting.KeyFrames.Count <= 1)
+                    if (setting.KeyFrames.Count <= 1)
                     {
                         slider.Value = setting.Value;
                         return;
                     }
 
-                    // There is a keyframe on this position
+                    // There is a keyframe on this position, use the keyframe's value
                     if (setting.KeyFrames.TryGetValue(PlayerTime, out KeyFrame keyFrame))
                     { 
                         slider.Value = keyFrame.Value;
+                        return;
                     }
 
                     // There is no keyFrame on the current time but there are 2
@@ -814,7 +815,23 @@ public class Animator : UIState
                 currentValue.Left.Set(-currentValue.MinWidth.Pixels / 2, slider.Left.Precent);
                 currentValue.OnUpdate += (_) =>
                 {
-                    currentValue.SetText(setting.ValueToText);
+                    // Get the default text
+                    string text = "";
+
+                    // If there are keyframes set and there is a keyframe
+                    // on this position: use the keyframe value.
+                    if (setting.KeyFrames.Count > 0 && setting.KeyFrames.TryGetValue(PlayerTime, out KeyFrame keyFrame))
+                    {
+                        text = setting.GetValueText(keyFrame.Value);
+                    }
+                    // Otherwise use the normal value.
+                    else
+                    {
+                        text = setting.ValueToText;
+                    }
+
+                    // Set new text
+                    currentValue.SetText(text);
                     currentValue.Left.Set(-currentValue.MinWidth.Pixels / 2, slider.Left.Precent);
                 };
                 fieldPanel.Append(currentValue);
@@ -860,18 +877,23 @@ public class Animator : UIState
                         return;
                     }
 
-                    // Remove the step value + limit
-                    setting.Value -= minus.Right ? setting.Step * 10 : setting.Step;
-                    setting.Value = Math.Max(setting.Value, setting.MinValue);
-
-                    // Check if there are keyframes set
                     if (setting.KeyFrames.Count > 0)
                     {
-                        // Set a keyframe with the new value (or modify existing)
-                        if (setting.AddKeyFrame(PlayerTime, setting.Value, setting.KeyMode))
-                        {
-                            setting.GenerateTexture = true;
-                        }
+                        setting.UpdateAnimationValue(PlayerTime);
+                    }
+
+                    setting.Value -= (minus.Right ? setting.Step * 10 : setting.Step);
+                    setting.Value = Math.Max(setting.Value, setting.MinValue);
+
+                    if (setting.KeyFrames.Count <= 0)
+                    {
+                        return;
+                    }
+
+                    // Set a keyframe with the new value (or modify existing)
+                    if (setting.AddKeyFrame(PlayerTime, setting.Value, setting.KeyMode))
+                    {
+                        setting.GenerateTexture = true;
                     }
                 };
                 fieldPanel.Append(minus);
@@ -906,18 +928,23 @@ public class Animator : UIState
                         return;
                     }
 
-                    // Add the step value + limit
-                    setting.Value += plus.Right ? setting.Step * 10 : setting.Step;
-                    setting.Value = Math.Min(setting.Value, setting.MaxValue);
-
-                    // Check if there are keyframes set
                     if (setting.KeyFrames.Count > 0)
                     {
-                        // Set a keyframe with the new value (or modify existing)
-                        if (setting.AddKeyFrame(PlayerTime, setting.Value, setting.KeyMode))
-                        {
-                            setting.GenerateTexture = true;
-                        }
+                        setting.UpdateAnimationValue(PlayerTime);
+                    }
+
+                    setting.Value += (plus.Right ? setting.Step * 10 : setting.Step);
+                    setting.Value = Math.Min(setting.Value, setting.MaxValue);
+
+                    if (setting.KeyFrames.Count <= 0)
+                    {
+                        return;
+                    }
+
+                    // Set a keyframe with the new value (or modify existing)
+                    if (setting.AddKeyFrame(PlayerTime, setting.Value, setting.KeyMode))
+                    {
+                        setting.GenerateTexture = true;
                     }
                 };
                 fieldPanel.Append(plus);
@@ -943,18 +970,13 @@ public class Animator : UIState
                     }
 
                     // Set to Zero, then limit just in case
-                    float newValue = Math.Clamp(0f, setting.MinValue, setting.MaxValue);
-
-                    if (setting.KeyFrames == null || setting.KeyFrames.Count <= 1)
-                    {
-                        setting.Value = newValue;
-                    }
+                    setting.Value = Math.Clamp(0f, setting.MinValue, setting.MaxValue);
 
                     // Check if there are keyframes set
                     if (setting.KeyFrames.Count > 0)
                     {
                         // Set a keyframe with the new value (or modify existing)
-                        if (setting.AddKeyFrame(PlayerTime, newValue, setting.KeyMode))
+                        if (setting.AddKeyFrame(PlayerTime, setting.Value, setting.KeyMode))
                         {
                             setting.GenerateTexture = true;
                         }
@@ -1127,16 +1149,23 @@ public class Animator : UIState
                 mode.Left.Set(next.Left.Pixels + next.Width.Pixels + 4, slider.Left.Precent);
                 mode.OnUpdate += (_) =>
                 {
-                    if (setting.KeyFrames == null || setting.KeyFrames.Count <= 0 || setting.Begin == InvalidKey)
+                    if (setting.KeyFrames.Count <= 0)
                     {
                         mode.State = (int)setting.KeyMode;
                         return;
                     }
 
-                    if (setting.KeyFrames.TryGetValue(setting.Begin, out KeyFrame key))
+                    if (setting.KeyFrames.TryGetValue(PlayerTime, out KeyFrame keyFrame))
                     {
-                        mode.State = (int)key.Mode;
-                        setting.KeyMode = key.Mode;
+                        mode.State = (int)keyFrame.Mode;
+                        setting.KeyMode = keyFrame.Mode;
+                        return;
+                    }
+
+                    if (setting.KeyFrames.TryGetValue(setting.Begin, out KeyFrame keyFrame2))
+                    {
+                        mode.State = (int)keyFrame2.Mode;
+                        setting.KeyMode = keyFrame2.Mode;
                     }
                 };
                 mode.OnLeftMouseDown += (_, _) =>
@@ -1152,30 +1181,26 @@ public class Animator : UIState
                         return;
                     }
 
-                    if (setting.KeyFrames == null || setting.KeyFrames.Count <= 0)
+                    // Go to the next state
+                    mode.State++;
+                    if (mode.State >= mode.States)
                     {
-                        mode.State++;
-                        if (mode.State >= mode.States)
-                        {
-                            mode.State = 0;
-                        }
+                        mode.State = 0;
+                    }
 
-                        setting.KeyMode = (KeyMode)mode.State;
+                    // Set the state
+                    setting.KeyMode = (KeyMode)mode.State;
+
+                    // No keyframes present
+                    if (setting.KeyFrames.Count <= 0)
+                    {
                         return;
                     }
 
-                    if (setting.KeyFrames.Count > 0)
-                    {
-                        mode.State++;
-                        if (mode.State >= mode.States)
-                        {
-                            mode.State = 0;
-                        }
-
-                        setting.KeyMode = (KeyMode)mode.State;
-                        setting.AddKeyFrame(PlayerTime, setting.Value, (KeyMode)mode.State);
-                        setting.GenerateTexture = true;
-                    }
+                    // Update the value on the current time
+                    setting.UpdateAnimationValue(PlayerTime);
+                    setting.AddKeyFrame(PlayerTime, setting.Value, (KeyMode)mode.State);
+                    setting.GenerateTexture = true;
                 };
                 fieldPanel.Append(mode);
 
