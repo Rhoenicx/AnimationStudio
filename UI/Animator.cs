@@ -136,7 +136,7 @@ public class Animator : UIState
     private static Dictionary<string, Dictionary<string, AnimationSettings>> _keyFrames;
 
     private static string _selectedFilter;
-    private static string SelectedFilter
+    public static string SelectedFilter
     {
         get => _selectedFilter;
         set
@@ -1373,6 +1373,7 @@ public class Animator : UIState
         }
         else
         {
+            setting.UpdateAnimationValue(PlayerTime);
             value = setting.Value;
         }
 

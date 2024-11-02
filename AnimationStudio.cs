@@ -172,6 +172,10 @@ public class AnimationStudio : Mod
 
                     Animator.SetPlayerTime(s4, i);
                     return "Success";
+
+                //----------------------------------------------------------
+                case "SelectedFilter":
+                    return Animator.SelectedFilter;
             }
         }
         catch (Exception e)
