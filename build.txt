@@ -1,6 +1,6 @@
 displayName = Animation Studio
 author = Rhoenicx
-version = 1.0.0.2
+version = 1.0.0.3
 hideCode = false
 hideResources = false
 homepage: https://github.com/Rhoenicx/AnimationStudio

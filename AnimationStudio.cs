@@ -7,6 +7,15 @@ namespace AnimationStudio;
 
 public class AnimationStudio : Mod
 {
+    internal static AnimationStudio Instance;
+
+    internal static AnimationStudioClientConfig AnimationStudioClientConfig;
+
+    public AnimationStudio()
+    { 
+        Instance = this;
+    }
+
     public override object Call(params object[] args)
     {
         try

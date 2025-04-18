@@ -2,6 +2,7 @@
 using Microsoft.Xna.Framework;
 using System;
 using System.Collections.Generic;
+using System.Composition;
 using System.Linq;
 using System.Text.RegularExpressions;
 using Terraria;
@@ -1403,62 +1404,142 @@ public class Animator : UIState
             return;
         }
 
+        // Shortcut to the number format
+        string numberFormat = AnimationStudio.AnimationStudioClientConfig.FloatToStringNumberFormat;
+
         // The string that will contain all the information
         string export = "";
 
-        if (fill)
+        switch (AnimationStudio.AnimationStudioClientConfig.Format)
         {
-            export += "\r\n\r\nnew Dictionary<string, List<float>>()\r\n{\r\n";
-
-            foreach (string control in settings.Keys)
-            {
-                if (settings[control].Disable || settings[control].KeyFrames == null || settings[control].KeyFrames.Count <= 0)
+            case ExportFormat.Default:
                 {
-                    continue;
+                    if (fill)
+                    {
+                        export += "\r\n\r\nnew Dictionary<string, List<float>>()\r\n{\r\n";
+
+                        foreach (string control in settings.Keys)
+                        {
+                            if (settings[control].Disable || settings[control].KeyFrames == null || settings[control].KeyFrames.Count <= 0)
+                            {
+                                continue;
+                            }
+
+                            export += "    { \"" + control + "\", new List<float>() {";
+
+                            for (int time = _minAnimTime; time <= _maxAnimTime; time++)
+                            {
+                                settings[control].UpdateAnimationValue(time);
+                                export += " " + settings[control].Value.ToString(numberFormat).Replace(",", ".") + "f,";
+                            }
+
+                            export += " } },\r\n";
+                        }
+
+                        export += "};\r\n";
+                    }
+                    else
+                    {
+                        export += "\r\n\r\nnew Dictionary<string, SortedDictionary<int, KeyFrame>>()\r\n{\r\n";
+
+                        foreach (string control in settings.Keys)
+                        {
+                            if (settings[control].Disable || settings[control].KeyFrames == null || settings[control].KeyFrames.Count <= 0)
+                            {
+                                continue;
+                            }
+
+                            export += "    { \"" + control + "\", new SortedDictionary<int, KeyFrame>() {";
+
+                            foreach (int key in settings[control].KeyFrames.Keys)
+                            {
+                                export += " { " + key + ", new KeyFrame(" + settings[control].KeyFrames[key].Value.ToString(numberFormat).Replace(",", ".") + "f, KeyMode." + settings[control].KeyFrames[key].Mode.ToString() + ") },";
+                            }
+
+                            export += " } },\r\n";
+                        }
+
+                        export += "};\r\n";
+                    }
                 }
+                break;
 
-                export += "    { \"" + control + "\", new List<float>() {";
-
-                for (int time  = _minAnimTime; time <= _maxAnimTime; time++)
+            case ExportFormat.KivotosMod:
                 {
-                    settings[control].UpdateAnimationValue(time);
-                    export += " " + settings[control].Value.ToString().Replace(",", ".") + "f,";
+                    foreach (string control in settings.Keys)
+                    {
+                        if (settings[control].KeyFrames.Count <= 0)
+                        {
+                            continue;
+                        }
+
+                        string lineKeys = "\t[";
+                        string lineValues = "\t[";
+                        string lineMode = "\t[";
+
+                        if (fill)
+                        {
+                            float scale = 1f / (_maxAnimTime - _minAnimTime == 0 ? 1 : _maxAnimTime - _minAnimTime);
+
+                            for (int time = _minAnimTime; time <= _maxAnimTime; time++)
+                            {
+                                lineKeys += AnimationStudio.AnimationStudioClientConfig.MapFromZeroToOne
+                                    ? ((time - _minAnimTime) * scale).ToString(numberFormat).Replace(",", ".") + "f" + (time < _maxAnimTime ? ", " : "")
+                                    : time.ToString() + (time < _maxAnimTime ? ", " : "");
+                                settings[control].UpdateAnimationValue(time);
+                                lineValues += settings[control].Value.ToString(numberFormat).Replace(",", ".") + "f" + (time < _maxAnimTime ? ", " : "");
+
+                                if (settings[control].KeyFrames.ContainsKey(time))
+                                {
+                                    lineMode += ((int)settings[control].KeyFrames[time].Mode).ToString() + (time < _maxAnimTime ? ", " : "");
+                                }
+                                else
+                                {
+                                    int before = settings[control].KeyFrames.SeekKeyBefore(time);
+                                    if (settings[control].KeyFrames.ContainsKey(before))
+                                    {
+                                        lineMode += ((int)settings[control].KeyFrames[before].Mode).ToString() + (time < _maxAnimTime ? ", " : "");
+                                    }
+                                }
+                            }
+                        }
+                        else
+                        {
+                            int count = settings[control].KeyFrames.Keys.Count;
+                            int first = settings[control].KeyFrames.First().Key;
+                            int last = settings[control].KeyFrames.Last().Key;
+                            float scale = 1f / (last - first == 0 ? 1 : last - first);
+
+                            foreach (int key in settings[control].KeyFrames.Keys)
+                            {
+                                count--;
+                                lineKeys += AnimationStudio.AnimationStudioClientConfig.MapFromZeroToOne
+                                    ? ((key - first) * scale).ToString(numberFormat).Replace(",", ".") + "f" + (count > 0 ? ", " : "")
+                                    : key + (count > 0 ? ", " : "");
+                                lineValues += settings[control].KeyFrames[key].Value.ToString(numberFormat).Replace(",", ".") + "f" + (count > 0 ? ", " : "");
+                                lineMode += ((int)settings[control].KeyFrames[key].Mode).ToString() + (count > 0 ? ", " : "");
+                            }
+                        }
+
+                        lineKeys += "],";
+                        lineValues += "],";
+                        lineMode += "]";
+
+                        export += "\r\n\r\n" + control + " = new(" + "\r\n";
+                        export += lineKeys + "\r\n" + lineValues + "\r\n" + lineMode;
+                        export += ");";
+                    }
+
+                    export += "\r\n\r\n";
                 }
-
-                export += " } },\r\n";
-            }
-
-            export += "};\r\n";
-        }
-        else
-        {
-            export += "\r\n\r\nnew Dictionary<string, SortedDictionary<int, KeyFrame>>()\r\n{\r\n";
-
-            foreach (string control in settings.Keys)
-            {
-                if (settings[control].Disable || settings[control].KeyFrames == null || settings[control].KeyFrames.Count <= 0)
-                {
-                    continue;
-                }
-
-                export += "    { \"" + control + "\", new SortedDictionary<int, KeyFrame>() {";
-
-                foreach (int key in settings[control].KeyFrames.Keys)
-                {
-                    export += " { " + key + ", new KeyFrame(" + settings[control].KeyFrames[key].Value.ToString().Replace(",", ".") + "f, KeyMode." + settings[control].KeyFrames[key].Mode.ToString() + ") },";
-                }
-
-                export += " } },\r\n";
-            }
-
-            export += "};\r\n";
+                break;
         }
 
         ModContent.GetInstance<AnimationStudio>().Logger.Info(export);
         Main.NewText("Export: success! please check client.log");
     }
 
-    private static void ExportSingle(string control, bool fill = false)
+    private static void ExportSingle(string control, bool fill = false, bool exportAll = false)
     {
         if (!_keyFrames.TryGetValue(_selectedFilter, out Dictionary<string, AnimationSettings> settings))
         {
@@ -1474,38 +1555,134 @@ public class Animator : UIState
 
         if (setting.KeyFrames == null || setting.KeyFrames.Count <= 0)
         {
-            Main.NewText("Export: maybe add some KeyFrames first?");
+            if (!exportAll)
+            {
+                Main.NewText("Export: maybe add some KeyFrames first?");
+            }
             return;
         }
+
+        // Shortcut to the number format
+        string numberFormat = AnimationStudio.AnimationStudioClientConfig.FloatToStringNumberFormat;
 
         // The string that will contain all the information
         string export = "";
 
-        if (fill)
+        switch (AnimationStudio.AnimationStudioClientConfig.Format)
         {
-            export += "\r\n\r\nnew List<float>() {";
+            case ExportFormat.Default:
+                {
+                    if (fill)
+                    {
+                        export += "\r\n\r\nnew List<float>() {";
 
-            for (int time = _minAnimTime; time <= _maxAnimTime; time++)
-            {
-                settings[control].UpdateAnimationValue(time);
-                export += " " + settings[control].Value.ToString().Replace(",", ".") + "f,";
-            }
+                        for (int time = _minAnimTime; time <= _maxAnimTime; time++)
+                        {
+                            settings[control].UpdateAnimationValue(time);
+                            export += " " + settings[control].Value.ToString(numberFormat).Replace(",", ".") + "f,";
+                        }
 
-            export += " };";
-        }
-        else
-        {
-            export += "\r\n\r\nnew SortedDictionary<int, KeyFrame>() {";
+                        export += " };";
+                    }
+                    else
+                    {
+                        if (AnimationStudio.AnimationStudioClientConfig.MapFromZeroToOne)
+                        {
+                            export += "\r\n\r\nnew SortedDictionary<float, KeyFrame>() {";
 
-            foreach (int key in settings[control].KeyFrames.Keys)
-            {
-                export += " { " + key + ", new KeyFrame(" + settings[control].KeyFrames[key].Value.ToString().Replace(",", ".") + "f, KeyMode." + settings[control].KeyFrames[key].Mode.ToString() + ") },";
-            }
+                            int first = settings[control].KeyFrames.First().Key;
+                            int last = settings[control].KeyFrames.Last().Key;
 
-            export += " };";
+                            float scale = 1f / (last - first == 0 ? 1 : last - first);
+
+                            foreach (int key in settings[control].KeyFrames.Keys)
+                            {
+                                export += " { " + ((key - first) * scale) + ", new KeyFrame(" + settings[control].KeyFrames[key].Value.ToString(numberFormat).Replace(",", ".") + "f, KeyMode." + settings[control].KeyFrames[key].Mode.ToString() + ") },";
+                            }
+                        }
+                        else
+                        {
+                            export += "\r\n\r\nnew SortedDictionary<int, KeyFrame>() {";
+
+                            foreach (int key in settings[control].KeyFrames.Keys)
+                            {
+                                export += " { " + key + ", new KeyFrame(" + settings[control].KeyFrames[key].Value.ToString(numberFormat).Replace(",", ".") + "f, KeyMode." + settings[control].KeyFrames[key].Mode.ToString() + ") },";
+                            }
+                        }
+
+                        export += " };";
+                    }
+                }
+                break;
+
+            case ExportFormat.KivotosMod:
+                {
+                    string lineKeys = "\t[";
+                    string lineValues = "\t[";
+                    string lineMode = "\t[";
+
+                    if (fill)
+                    {
+                        float scale = 1f / (_maxAnimTime - _minAnimTime == 0 ? 1 : _maxAnimTime - _minAnimTime);
+
+                        for (int time = _minAnimTime; time <= _maxAnimTime; time++)
+                        {
+                            lineKeys += AnimationStudio.AnimationStudioClientConfig.MapFromZeroToOne
+                                ? ((time - _minAnimTime) * scale).ToString(numberFormat).Replace(",", ".") + "f" + (time < _maxAnimTime ? ", " : "")
+                                : time.ToString() + (time < _maxAnimTime ? ", " : "");
+                            settings[control].UpdateAnimationValue(time);
+                            lineValues += settings[control].Value.ToString(numberFormat).Replace(",", ".") + "f" + (time < _maxAnimTime ? ", " : "");
+
+                            if (settings[control].KeyFrames.ContainsKey(time))
+                            {
+                                lineMode += ((int)settings[control].KeyFrames[time].Mode).ToString() + (time < _maxAnimTime ? ", " : "");
+                            }
+                            else
+                            {
+                                int before = settings[control].KeyFrames.SeekKeyBefore(time);
+                                if (settings[control].KeyFrames.ContainsKey(before))
+                                {
+                                    lineMode += ((int)settings[control].KeyFrames[before].Mode).ToString() + (time < _maxAnimTime ? ", " : "");
+                                }
+                            }
+                        }
+                    }
+                    else
+                    {
+                        int count = settings[control].KeyFrames.Keys.Count;
+                        int first = settings[control].KeyFrames.First().Key;
+                        int last = settings[control].KeyFrames.Last().Key;
+                        float scale = 1f / (last - first == 0 ? 1 : last - first);
+
+                        foreach (int key in settings[control].KeyFrames.Keys)
+                        {
+                            count--;
+                            lineKeys += AnimationStudio.AnimationStudioClientConfig.MapFromZeroToOne
+                                ? ((key - first) * scale).ToString(numberFormat).Replace(",", ".") + "f" + (count > 0 ? ", " : "")
+                                : key + (count > 0 ? ", " : "");
+                            lineValues += settings[control].KeyFrames[key].Value.ToString(numberFormat).Replace(",", ".") + "f" + (count > 0 ? ", " : "");
+                            lineMode += ((int)settings[control].KeyFrames[key].Mode).ToString() + (count > 0 ? ", " : "");
+                        }
+                    }
+
+                    lineKeys += "],";
+                    lineValues += "],";
+                    lineMode += "]";
+
+                    export += "\r\n\r\n" + control + " = new(" + "\r\n";
+                    export += lineKeys + "\r\n" + lineValues + "\r\n" + lineMode;
+                    export += ");" + "\r\n\r\n";
+                }
+                break;
         }
 
         ModContent.GetInstance<AnimationStudio>().Logger.Info(export);
+
+        if (exportAll)
+        {
+            return;
+        }
+
         Main.NewText("Export: success! Please check client.log");
     }
 }

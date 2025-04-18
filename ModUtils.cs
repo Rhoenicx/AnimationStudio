@@ -353,31 +353,47 @@ public static class ModUtils
             return;
         }
 
-        // Both keys are present, the given time is between 2 keyframes.
-        // Interpolate between the 2 keys, this will be the progress between
-        // the 2 keys from 0f to 1f.
-        float progress = (float)(time - setting.Begin) / (float)(setting.End - setting.Begin);
+        // Create variable to store the current progress
+        float progress = 0f;
 
         // Determine the keymode towards the next key.
         // This determines the shape of the 'progress' line.
         // Always uses the Mode of the Begin key.
         switch (beginKeyFrame2.Mode)
         {
+            case KeyMode.Lower:
+                {
+                    progress = 0f;
+                }
+                break;
+
+            case KeyMode.Upper:
+                {
+                    progress = 1f;
+                }
+                break;
+
+            case KeyMode.Linear:
+                {
+                    progress = (float)(time - setting.Begin) / (float)(setting.End - setting.Begin);
+                }
+                break;
+
             case KeyMode.InQuad:
                 {
-                    progress = InQuad(progress);
+                    progress = InQuad((float)(time - setting.Begin) / (float)(setting.End - setting.Begin));
                 }
                 break;
 
             case KeyMode.OutQuad:
                 {
-                    progress = OutQuad(progress);
+                    progress = OutQuad((float)(time - setting.Begin) / (float)(setting.End - setting.Begin));
                 }
                 break;
 
             case KeyMode.InOutQuad:
                 {
-                    progress = InOutQuad(progress);
+                    progress = InOutQuad((float)(time - setting.Begin) / (float)(setting.End - setting.Begin));
                 }
                 break;
         }
@@ -482,6 +498,8 @@ public static class ModUtils
 
     public enum KeyMode
     {
+        Lower,
+        Upper,
         Linear,
         InQuad,
         OutQuad,

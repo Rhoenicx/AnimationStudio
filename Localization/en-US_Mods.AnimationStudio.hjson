@@ -4,3 +4,30 @@ Items: {
 		Tooltip: Opens the Animation Studio!
 	}
 }
+
+Configs: {
+	AnimationStudioClientConfig: {
+		DisplayName: Animation Studio Client Config
+
+		Format: {
+			Label: Export Format
+			Tooltip: The export format that should be used. Other than default means mod specific export
+		}
+
+		MapFromZeroToOne: {
+			Label: Map From 0f To 1f
+			Tooltip: Converts the ticks inside the UI to a float value from 0f to 1f during export
+		}
+
+		FloatToStringNumberFormat: {
+			Label: Number format
+			Tooltip: The number format that will be used when exporting float values
+		}
+	}
+
+	ExportFormat: {
+		Tooltip: ""
+		Default.Label: Default
+		KivotosMod.Label: Kivotos Mod
+	}
+}
