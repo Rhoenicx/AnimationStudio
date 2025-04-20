@@ -1466,6 +1466,38 @@ public class Animator : UIState
 
             case ExportFormat.KivotosMod:
                 {
+                    int first = _minAnimTime;
+                    int last = _maxAnimTime;
+
+                    if (!fill)
+                    {
+                        int lowest = int.MaxValue;
+                        int highest = int.MinValue;
+
+                        foreach (string control in settings.Keys)
+                        {
+                            if (settings[control].KeyFrames.Count <= 0)
+                            {
+                                continue;
+                            }
+
+                            if (settings[control].KeyFrames.First().Key < lowest)
+                            {
+                                lowest = settings[control].KeyFrames.First().Key;
+                            }
+
+                            if (settings[control].KeyFrames.Last().Key > highest)
+                            {
+                                highest = settings[control].KeyFrames.Last().Key;
+                            }
+                        }
+
+                        first = Math.Max(lowest, first);
+                        last = Math.Min(highest, last);
+                    }
+
+                    float scale = 1f / (last - first == 0 ? 1 : last - first);
+
                     foreach (string control in settings.Keys)
                     {
                         if (settings[control].KeyFrames.Count <= 0)
@@ -1479,8 +1511,6 @@ public class Animator : UIState
 
                         if (fill)
                         {
-                            float scale = 1f / (_maxAnimTime - _minAnimTime == 0 ? 1 : _maxAnimTime - _minAnimTime);
-
                             for (int time = _minAnimTime; time <= _maxAnimTime; time++)
                             {
                                 lineKeys += AnimationStudio.AnimationStudioClientConfig.MapFromZeroToOne
@@ -1506,9 +1536,6 @@ public class Animator : UIState
                         else
                         {
                             int count = settings[control].KeyFrames.Keys.Count;
-                            int first = settings[control].KeyFrames.First().Key;
-                            int last = settings[control].KeyFrames.Last().Key;
-                            float scale = 1f / (last - first == 0 ? 1 : last - first);
 
                             foreach (int key in settings[control].KeyFrames.Keys)
                             {
